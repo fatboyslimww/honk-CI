@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 kwrum1
+#
+# Auto-Clean: the daily housekeeping run, and the thing that starts the builds.
+#
+# Upstream's model, kept on purpose: one nightly run removes the previous
+# images, tags, artifacts and run history, and every build pipeline is
+# triggered by its completion (`workflow_run`). That keeps exactly one day of
+# output and gives the whole matrix a single start time, instead of six
+# independent crons that can overlap on a shared runner quota.
+#
+# Start time: 20:00 UTC = 04:00 Asia/Shanghai. Images are ready by ~06:00.
+#
+# Exception: the `core-p1` release is kept. It is the patched honk core the
+# X86/ROCKCHIP builds download; the primary copy now lives in kwrum1/dpd-fw and
+# Scripts/Packages.sh falls back to this repository when that one is missing.
+# Keeping it makes an Auto-Clean-triggered build safe either way.
+
+name: Auto-Clean
+
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: maintenance-auto-clean
+  cancel-in-progress: false
+
+jobs:
+  auto_clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Delete old Releases, Tags and Workflow runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          delete_releases: true
+          releases_keep_latest: 0
+          releases_keep_keyword: "core-p1"
+          delete_tags: true
+          delete_workflows: true
+          # Delete every run. The keyword keeps this workflow's own runs, so the
+          # purge does not cancel itself halfway through; every build run and
+          # every artifact is removed.
+          workflows_keep_day: 0
+          workflows_keep_keyword: "Auto-Clean"
+
+      # The action above does not touch artifacts. They are the largest thing
+      # an image build leaves behind (build reports, provenance, per-target
+      # uploads), so a nightly full wipe keeps the repository clean.
+      - name: Delete all workflow artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | [.id, .name] | @tsv' > /tmp/artifacts.tsv || true
+
+          total=$(wc -l < /tmp/artifacts.tsv)
+          echo "artifacts to delete: $total"
+          while IFS=$'\t' read -r id name; do
+            [ -n "${id:-}" ] || continue
+            echo "  delete $id  $name"
+            gh api -X DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$id" >/dev/null || \
+              echo "  warning: could not delete $id"
+          done < /tmp/artifacts.tsv

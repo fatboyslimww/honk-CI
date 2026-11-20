@@ -1,0 +1,237 @@
+"""Put the eBPF acceleration into the Vantage dashboard's health row.
+
+The theme's landing page ("Everything looks healthy") renders one chip per
+health check (CPU, memory, storage, Wi-Fi, ...). This adds one more chip in
+exactly that style, fed by /var/run/ebpf/status.json:
+
+    eBPF       v4 86.7% · v6 45.0%
+               stateful · 1,204 / 80 流
+
+The theme is cloned from upstream at build time, so Handles.sh applies this.
+Idempotent (marker comment).
+
+Usage: patch-vantage-overview.py <package dir containing luci-app-vantage>
+"""
+import io
+import sys
+
+MARK = "/* ebpf-health-chip */"
+
+CSS_EXTRA = '\n/* ebpf-ppe-chip: five health cards on one row, compact, DPD/PPE aligned */\n.vt-health{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}\n.vt-health>.vt-chip{padding:8px 8px;gap:5px}\n.vt-health .vt-chip-ico{width:18px;height:18px;border-radius:6px}\n.vt-health .vt-chip-ico .vt-ico{width:13px;height:13px}\n.vt-health .vt-chip-title{font-size:10px;letter-spacing:.04em}\n.vt-health .vt-chip-value{font-size:14px;line-height:1.2}\n.vt-health .vt-chip-reason{display:block;overflow:visible;-webkit-line-clamp:unset;font-size:9.5px;line-height:1.45;margin-top:3px}\n.vt-dpd-row{display:flex;align-items:baseline;gap:6px;min-width:0}\n.vt-dpd-key{flex:0 0 22px;font-weight:650;color:var(--vt-text-3)}\n.vt-dpd-val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}\n@media(max-width:1100px){.vt-health{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(3,minmax(0,1fr))}}\n@media(max-width:760px){.vt-health{grid-template-columns:repeat(2,minmax(0,1fr))}}\n'
+
+SIG_OLD = ("\t\tvar sig = JSON.stringify(this.st.health.map(function(c) { return [ c.level, c.title, c.value, c.reason, c.detail, c.client, c.page ]; }));\n")
+SIG_NEW = ("\t\tvar sig = JSON.stringify(this.st.health.map(function(c) { return [ c.level, c.title, c.value, c.reason, c.detail, c.client, c.page ]; }))\n"
+           "\t\t\t+ (this.ebpf ? JSON.stringify([ this.ebpf.cfg, this.ebpf.maps && this.ebpf.maps.flows,\n"
+           "\t\t\t\tthis.ebpf.maps && this.ebpf.maps.ppe,\n"
+           "\t\t\t\tthis.ebpf.stats && this.ebpf.stats.bytes_v4, this.ebpf.stats && this.ebpf.stats.bytes_hit_v4,\n"
+           "\t\t\t\tthis.ebpf.stats && this.ebpf.stats.bytes_v6, this.ebpf.stats && this.ebpf.stats.bytes_hit_v6 ]) : '');\n")
+
+CHIP_OLD = ("\t\t}));\n"
+            "\t},\n"
+            "\n"
+            "\t/* ------------------------------------------------------------- hero */\n")
+CHIP_NEW = ("\t\t}));\n"
+            "\n"
+            "\t\t%s\n"
+            "\t\tif (this.ebpf) {\n"
+            "\t\t\tvar e = this.ebpf, es = e.stats || {}, ef = (e.maps || {}).flows || {};\n"
+            "\t\t\tvar mode = (e.cfg || {}).mode || '?';\n"
+            "\t\t\t/* \"attached\" only proves the pinned dpd_cfg exists, i.e. the\n"
+            "\t\t\t * object is loaded. A tc filter can vanish (netns deleted,\n"
+            "\t\t\t * bridge port recreated, qdisc flushed) while the maps stay\n"
+            "\t\t\t * pinned; the chip then claimed acceleration for a datapath\n"
+            "\t\t\t * that saw no packets. Require a real hook. Older snapshots\n"
+            "\t\t\t * have no \"hooked\" field, so only distrust it when present. */\n"
+            "\t\t\tvar hooked = (typeof e.hooked === 'number') ? e.hooked > 0 : true;\n"
+            "\t\t\tvar accel = !!e.attached && hooked && (mode === 'stateful' || mode === 'stateless');\n"
+            "\t\t\tvar level = accel ? 'ok' : 'info';\n"
+            "\t\t\tvar ic = level === 'ok' ? 'check' : level === 'warn' ? 'warn' : 'info';\n"
+            "\t\t\tfunction pct(hit, all) {\n"
+            "\t\t\t\treturn all > 0 ? (hit * 100 / all).toFixed(1) + '%%' : '0.0%%';\n"
+            "\t\t\t}\n"
+            "\t\t\tvar value = accel\n"
+            "\t\t\t\t? 'v4 ' + pct(Number(es.bytes_hit_v4) || 0, Number(es.bytes_v4) || 0)\n"
+            "\t\t\t\t  + ' \\u00b7 v6 ' + pct(Number(es.bytes_hit_v6) || 0, Number(es.bytes_v6) || 0)\n"
+            "\t\t\t\t: ((e.cfg || {}).mode || '\\u2014');\n"
+            "\t\t\tvar ep = (e.maps || {}).ppe || null;\n"
+            "\t\t\tvar eh = (e.maps || {}).ppe_hw || null;\n"
+            "\t\t\t/* Two flow tables, kept apart on purpose:\n"
+            "\t\t\t *   dpd_flows  what DPD's eBPF fastpath accelerates\n"
+            "\t\t\t *   PPE        the hardware L3 offload table (used/max)\n"
+            "\t\t\t * Adding them would claim hardware acceleration for flows\n"
+            "\t\t\t * the software path handles, so each gets its own line. */\n"
+            "\t\t\tvar dpdf = (Number(ef.v4) || 0) + (Number(ef.v6) || 0);\n"
+            "\t\t\tvar dpdmax = Number(ef.max_entries) || 0;\n"
+            "\t\t\tvar dpdline = 'DPD: ' + dpdf.toLocaleString() + '/' + dpdmax.toLocaleString()\n"
+            "\t\t\t\t+ ' (IPv4: ' + (Number(ef.v4) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' IPv6: ' + (Number(ef.v6) || 0).toLocaleString() + ')';\n"
+            "\t\t\tvar ppeline = eh && eh.present\n"
+            "\t\t\t\t? 'PPE: ' + (Number(eh.used) || 0).toLocaleString() + '/'\n"
+            "\t\t\t\t+ (Number(eh.max) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' (IPv4: ' + (Number(eh.v4) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' IPv6: ' + (Number(eh.v6) || 0).toLocaleString() + ')'\n"
+            "\t\t\t\t: '';\n"
+            "\t\t\t/* two rows share a label column, so the numbers start at one x */\n"
+            "\t\t\tvar rows = [ E('span', { 'class': 'vt-dpd-row' }, [\n"
+            "\t\t\t\tE('span', { 'class': 'vt-dpd-key' }, [ 'DPD' ]),\n"
+            "\t\t\t\tE('span', { 'class': 'vt-dpd-val' }, [\n"
+            "\t\t\t\tdpdf.toLocaleString() + '/' + dpdmax.toLocaleString()\n"
+            "\t\t\t\t+ ' (IPv4: ' + (Number(ef.v4) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' IPv6: ' + (Number(ef.v6) || 0).toLocaleString() + ')'\n"
+            "\t\t\t\t])\n"
+            "\t\t\t]) ];\n"
+            "\t\t\tif (ppeline)\n"
+            "\t\t\t\trows.push(E('span', { 'class': 'vt-dpd-row' }, [\n"
+            "\t\t\t\tE('span', { 'class': 'vt-dpd-key' }, [ 'PPE' ]),\n"
+            "\t\t\t\tE('span', { 'class': 'vt-dpd-val' }, [\n"
+            "\t\t\t\t(Number(eh.used) || 0).toLocaleString() + '/'\n"
+            "\t\t\t\t+ (Number(eh.max) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' (IPv4: ' + (Number(eh.v4) || 0).toLocaleString()\n"
+            "\t\t\t\t+ ' IPv6: ' + (Number(eh.v6) || 0).toLocaleString() + ')'\n"
+            "\t\t\t\t])\n"
+            "\t\t\t\t]));\n"
+            "\t\t\tvar live = !!e.attached;\n"
+            "\t\t\tthis.el.health.appendChild(E('div', { 'class': 'vt-chip vt-chip-' + level, 'role': 'listitem',\n"
+            "\t\t\t\t'title': 'eBPF ' + mode + ' \\u00b7 v4 ' + (Number(ef.v4) || 0).toLocaleString()\n"
+            "\t\t\t\t\t+ ' (\\u5360\\u6bd4 ' + pct(Number(es.bytes_hit_v4) || 0, Number(es.bytes_v4) || 0) + ')'\n"
+            "\t\t\t\t\t+ ' \\u00b7 v6 ' + (Number(ef.v6) || 0).toLocaleString()\n"
+            "\t\t\t\t\t+ ' (\\u5360\\u6bd4 ' + pct(Number(es.bytes_hit_v6) || 0, Number(es.bytes_v6) || 0) + ')'\n"
+            "\t\t\t\t\t+ (ep || eh ? '\\n' + dpdline\n"
+            "\t\t\t\t\t\t+ (ppeline ? '\\n' + ppeline : '')\n"
+            "\t\t\t\t\t\t+ (ep ? '\\n\\u786c\\u4ef6\\u72b6\\u6001: offloaded '\n"
+            "\t\t\t\t\t\t\t+ (Number(ep.offloaded) || 0).toLocaleString()\n"
+            "\t\t\t\t\t\t\t+ ' / yielded ' + (Number(ep.yielded) || 0).toLocaleString()\n"
+            "\t\t\t\t\t\t\t+ ' \\u00b7 DPD \\u81ea\\u5df1\\u5728\\u8dd1 '\n"
+            "\t\t\t\t\t\t\t+ (Number(ep.sw_active) || 0).toLocaleString() + ' \\u6d41'\n"
+            "\t\t\t\t\t\t: '') + ''\n"
+            "\t\t\t\t\t\t: '') }, [\n"
+            "\t\t\t\tE('span', { 'class': 'vt-chip-ico' }, [ icon(ic) ]),\n"
+            "\t\t\t\tE('span', { 'class': 'vt-chip-main' }, [\n"
+            "\t\t\t\t\tE('span', { 'class': 'vt-chip-top' }, [\n"
+            "\t\t\t\t\t\tE('span', { 'class': 'vt-chip-title' }, [ 'DPD' ]),\n"
+            "\t\t\t\t\t\tE('span', { 'class': 'vt-chip-value' }, [ value ])\n"
+            "\t\t\t\t\t]),\n"
+            "\t\t\t\t\tE('span', { 'class': 'vt-chip-reason' }, rows)\n"
+            "\t\t\t\t])\n"
+            "\t\t\t]));\n"
+            "\t\t}\n"
+            "\t},\n"
+            "\n"
+            "\t/* ------------------------------------------------------------- hero */\n") % MARK
+
+FETCH_OLD = ("\t\tpatch(el.fw, [\n"
+             "\t\t\tE('span', {}, [ d.firmware || '' ]),\n"
+             "\t\t\td.kernel ? E('span', { 'class': 'vt-hint' }, [ _('Kernel %s').format(d.kernel) ]) : ''\n"
+             "\t\t]);\n\t},\n")
+FETCH_NEW = ("\t\tpatch(el.fw, [\n"
+             "\t\t\tE('span', {}, [ d.firmware || '' ]),\n"
+             "\t\t\td.kernel ? E('span', { 'class': 'vt-hint' }, [ _('Kernel %s').format(d.kernel) ]) : ''\n"
+             "\t\t]);\n"
+             "\n"
+             "\t\t/* feed the health row's eBPF chip (same file the status page uses) */\n"
+             "\t\tvar self = this;\n"
+             "\t\tL.resolveDefault(callRead('/var/run/ebpf/status.json'), '').then(function(raw) {\n"
+             "\t\t\tvar st = null;\n"
+             "\t\t\ttry { st = JSON.parse(raw); } catch (e) {}\n"
+             "\t\t\tself.ebpf = st || { attached: false };\n"
+             "\t\t\tself.paintHealth();\n"
+             "\t\t});\n"
+             "\t},\n")
+
+
+def main():
+    root = sys.argv[1] if len(sys.argv) > 1 else "."
+    path = (root.rstrip("/") +
+            "/luci-app-vantage/htdocs/luci-static/resources/view/vantage/overview.js")
+    try:
+        src = io.open(path, encoding="utf-8").read()
+    except FileNotFoundError:
+        print("patch-vantage-overview: %s not found" % path, file=sys.stderr)
+        return 1
+
+    if MARK in src:
+        print("patch-vantage-overview: already applied")
+        return 0
+
+    for anchor, name in ((SIG_OLD, "health signature"), (CHIP_OLD, "health tail"),
+                         (FETCH_OLD, "paintSystem tail")):
+        if anchor not in src:
+            print("patch-vantage-overview: anchor for %s not found in %s"
+                  % (name, path), file=sys.stderr)
+            return 1
+
+    src = src.replace(SIG_OLD, SIG_NEW, 1)
+    src = src.replace(CHIP_OLD, CHIP_NEW, 1)
+    src = src.replace(FETCH_OLD, FETCH_NEW, 1)
+
+    io.open(path, "w", encoding="utf-8").write(src)
+    print("patch-vantage-overview: added the eBPF health chip to %s" % path)
+
+    # 1) drop the theme's own firewall overview page: the firewall menu belongs
+    #    to the eBPF port-control page here, and a leftover child paints a
+    #    "1" badge next to it.
+    menu = (root.rstrip("/") + "/luci-app-vantage/root/usr/share/luci/"
+            "menu.d/luci-app-vantage.json")
+    try:
+        import json
+        d = json.load(io.open(menu, encoding="utf-8"))
+        if d.pop("admin/network/firewall/overview", None) is not None:
+            io.open(menu, "w", encoding="utf-8", newline="\n").write(
+                json.dumps(d, ensure_ascii=False, indent="\t") + "\n")
+            print("patch-vantage-overview: dropped admin/network/firewall/overview")
+    except FileNotFoundError:
+        pass
+
+    # 2) Do NOT force a column count.
+    #
+    # Upstream v1.0.12 already has 2/3/6 columns. Adding a chip and pinning the
+    # grid to a fixed count made every chip narrower and truncated the label
+    # ("v4 86.7% · v6…", "flowtab…") at 1400px. Letting the theme's own rules
+    # apply means the extra chip simply wraps onto a second row, which stays
+    # readable at every width.
+    #
+    # The rule is still *removed* if an older build appended one, so upgrading
+    # in place repairs itself.
+    css = (root.rstrip("/") + "/luci-app-vantage/htdocs/luci-static/"
+           "resources/vantage/app.css")
+    try:
+        css_src = io.open(css, encoding="utf-8").read()
+        import re
+        trimmed = re.sub(
+            r"\n@container vt \(min-width: 1100px\) \{ \.vt-app\.vt-wired "
+            r"\.vt-health \{ grid-template-columns: repeat\(\d+, minmax\(0, 1fr\)\);"
+            r" \} \}\n", "", css_src)
+        if trimmed != css_src:
+            io.open(css, "w", encoding="utf-8", newline="\n").write(trimmed)
+            print("patch-vantage-overview: removed a hard-coded health column count")
+        else:
+            trimmed = css_src
+
+        if "ebpf-ppe-chip" not in trimmed:
+            io.open(css, "w", encoding="utf-8", newline="\n").write(
+                trimmed + CSS_EXTRA)
+            print("patch-vantage-overview: health row laid out on one line")
+    except FileNotFoundError:
+        pass
+
+    # 3) let the dashboard read the status file. /var/run is a symlink to
+    #    /tmp/run and rpcd matches the canonical path, so grant both.
+    acl = (root.rstrip("/") + "/luci-app-vantage/root/usr/share/rpcd/"
+           "acl.d/luci-app-vantage.json")
+    try:
+        import json
+        d = json.load(io.open(acl, encoding="utf-8"))
+        file_acl = d["luci-app-vantage"]["read"].setdefault("file", {})
+        for p in ("/var/run/ebpf/status.json", "/tmp/run/ebpf/status.json"):
+            file_acl[p] = ["read"]
+        io.open(acl, "w", encoding="utf-8", newline="\n").write(
+            json.dumps(d, ensure_ascii=False, indent="\t") + "\n")
+        print("patch-vantage-overview: status.json readable by the dashboard")
+    except (FileNotFoundError, KeyError):
+        pass
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
