@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 kwrum1
 #
-# EBPF-WRT-ALL: the eBPF targets (X86, ROCKCHIP).
+# EBPF-WRT-ALL: the X86 eBPF image. ROCKCHIP has its own pipeline (ROCKCHIP.yml).
 #
 # Firmware source: VIKINGYFY/immortalwrt@owrt (the upstream tree, unchanged).
 # Datapath:        this repository's ebpf/ directory, copied into package/ by
-#                  Scripts/Packages.sh. Only these two configs get it; every
+#                  Scripts/Packages.sh. Only X86 and ROCKCHIP get it; every
 #                  other target builds the stock package set.
 #
 # Trigger chain, same shape as upstream: Auto-Clean runs nightly and its
@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        CONFIG: [ROCKCHIP, X86]
+        CONFIG: [X86]
         SOURCE: [VIKINGYFY/immortalwrt]
         BRANCH: [owrt]
 

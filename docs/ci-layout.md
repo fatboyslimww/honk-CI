@@ -26,17 +26,18 @@ publishes the `einat-p2` release. This repository only downloads the binary
 
 | Branch | Meaning | Built by |
 |---|---|---|
-| `owrt` | mainline tree, **PPE** flow offload (kernel flowtable) | EBPF-WRT-ALL, MTK-ALL, QCA-PPE |
+| `owrt` | mainline tree, **PPE** flow offload (kernel flowtable) | EBPF-WRT-ALL, ROCKCHIP, MTK-ALL, QCA-PPE |
 | `main` | Qualcomm **NSS firmware** variant (`qca-nss-drv`) | QCA-NSS |
 
 ## Workflows
 
 | Workflow | Configs | Source | Purpose |
 |---|---|---|---|
-| `EBPF-WRT-ALL` | X86, ROCKCHIP | `@owrt` | the eBPF images (datapath from `ebpf/`) |
+| `EBPF-WRT-ALL` | X86 | `@owrt` | the x86 eBPF image (datapath from `ebpf/`) |
 | `QCA-PPE` | IPQ60XX / IPQ807X (wifi yes/no) | `@owrt` | **PPE** variant |
 | `QCA-NSS` | IPQ60XX / IPQ807X (same four configs) | `@main` | **NSS firmware** variant |
 | `MTK-ALL` | MEDIATEK-WIFI-YES/NO | `@owrt` | MediaTek |
+| `ROCKCHIP` | ROCKCHIP | `@owrt` (selectable when dispatched by hand) | the Rockchip eBPF image (same stack as X86) |
 | `WRT-TEST` | one config, by hand | `owrt` or `main` | reproduce a single build |
 
 Automation, restored to the upstream shape:
@@ -45,7 +46,7 @@ Automation, restored to the upstream shape:
 |---|---|---|
 | `Auto-Clean` | daily 22:00 UTC, or manual | delete yesterday's releases/tags/runs, then **trigger every build pipeline** |
 | `Cache-Clean` | Sundays 20:00 UTC, or manual | `gh cache delete --all` |
-| `EBPF-WRT-ALL` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` | on `Auto-Clean` completion, or manual | the images |
+| `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` | on `Auto-Clean` completion, or manual | the images |
 | `WRT-TEST` | manual only | one config |
 
 A push alone never starts a build: a nightly build always pins the source commit

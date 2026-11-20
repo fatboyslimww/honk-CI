@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 kwrum1
+#
+# ROCKCHIP: the Rockchip (armv8) eBPF image, built on its own pipeline.
+#
+# Same image the ROCKCHIP leg of EBPF-WRT-ALL used to produce -- same
+# Config/ROCKCHIP.txt + Config/GENERAL.txt, same ebpf/ datapath, same
+# honk-x86rk.patch + p1 core. EBPF-WRT-ALL now builds X86 only, so RK is
+# built exactly once per night, here.
+#
+# WRT_CONFIG must stay exactly "ROCKCHIP": Packages.sh / Handles.sh /
+# Settings.sh / WRT-CORE.yml select the eBPF stack by that literal name.
+#
+# Triggers: Auto-Clean completion (nightly, defaults below), or manual
+# dispatch where source / branch / LAN IP can be overridden. A workflow_run
+# event carries no inputs, so every input below has a fallback in `with:`.
+
+name: ROCKCHIP
+
+on:
+  # 自动编译：Auto-Clean 跑完后（与上游一致的“清理 -> 编译”链）
+  workflow_run:
+    workflows: ["Auto-Clean"]
+    types:
+      - completed
+  # 手动编译
+  workflow_dispatch:
+    inputs:
+      SOURCE:
+        description: 'Firmware source repository'
+        default: 'VIKINGYFY/immortalwrt'
+        required: true
+        type: choice
+        options:
+          - VIKINGYFY/immortalwrt
+          - immortalwrt/immortalwrt
+      BRANCH:
+        description: 'Source branch (owrt = mainline flowtable tree)'
+        default: 'owrt'
+        required: true
+        type: string
+      IP:
+        description: 'Default LAN address'
+        default: '192.168.10.1'
+        required: true
+        type: string
+      PACKAGE:
+        description: 'Extra package lines for .config (use \n between lines)'
+        required: false
+        type: string
+      TEST:
+        description: 'Config-only run (no image)'
+        default: false
+        required: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rockchip
+  cancel-in-progress: false
+
+jobs:
+  config:
+    name: ROCKCHIP
+    uses: ./.github/workflows/WRT-CORE.yml
+    with:
+      WRT_CONFIG: ROCKCHIP
+      WRT_THEME: vantage
+      WRT_NAME: OWRT
+      WRT_SSID: OWRT
+      WRT_WORD: 12345678
+      WRT_IP: ${{ inputs.IP || '192.168.10.1' }}
+      WRT_PW: 无
+      WRT_REPO: https://github.com/${{ inputs.SOURCE || 'VIKINGYFY/immortalwrt' }}.git
+      WRT_BRANCH: ${{ inputs.BRANCH || 'owrt' }}
+      WRT_SOURCE: ${{ inputs.SOURCE || 'VIKINGYFY/immortalwrt' }}
+      WRT_PACKAGE: ${{ inputs.PACKAGE }}
+      WRT_TEST: ${{ inputs.TEST || false }}
