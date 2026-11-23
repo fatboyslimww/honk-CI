@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 kwrum1
+#
+# RASPBERRYPI: Raspberry Pi 3 / 4 / 5 images (target bcm27xx, 64-bit).
+#
+# One config per SoC, because each is its own subtarget and WRT-CORE builds one
+# subtarget per job:
+#   RASPBERRYPI-3 -> bcm2710 / rpi-3 (Cortex-A53)
+#   RASPBERRYPI-4 -> bcm2711 / rpi-4 (Cortex-A72)
+#   RASPBERRYPI-5 -> bcm2712 / rpi-5 (Cortex-A76)
+# The split follows wukongdaily/ImmortalWrt-ImageBuilder's Raspberry Pi
+# workflow; here the images are compiled from source instead of assembled by
+# the ImageBuilder.
+#
+# Stock path, like MTK-ALL: these names are not X86/ROCKCHIP, so Settings.sh
+# uses Config/GENERAL-STOCK.txt and the original upstream honk, and the ebpf/
+# datapath is not installed. Kernel flow offloading stays on.
+#
+# Started by Auto-Clean's completion (workflow_run), plus manual dispatch where
+# the models can be picked one at a time.
+
+name: RASPBERRYPI
+
+on:
+  # 自动编译：Auto-Clean 跑完后（与上游一致的“清理 -> 编译”链）
+  workflow_run:
+    workflows: ["Auto-Clean"]
+    types:
+      - completed
+  # 手动编译
+  workflow_dispatch:
+    inputs:
+      MODEL:
+        description: 'Which Raspberry Pi to build'
+        default: 'ALL'
+        required: true
+        type: choice
+        options:
+          - ALL
+          - RASPBERRYPI-3
+          - RASPBERRYPI-4
+          - RASPBERRYPI-5
+      PACKAGE:
+        description: 'Extra package lines for .config'
+        required: false
+        type: string
+      TEST:
+        description: 'Config-only run (no image)'
+        default: false
+        required: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: raspberrypi
+  cancel-in-progress: false
+
+jobs:
+  config:
+    name: ${{ matrix.CONFIG }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Nightly runs carry no inputs, so ALL is the fallback.
+        CONFIG: ${{ fromJSON((inputs.MODEL || 'ALL') == 'ALL' && '["RASPBERRYPI-3","RASPBERRYPI-4","RASPBERRYPI-5"]' || format('["{0}"]', inputs.MODEL)) }}
+        SOURCE: [VIKINGYFY/immortalwrt]
+        BRANCH: [owrt]
+
+    uses: ./.github/workflows/WRT-CORE.yml
+    with:
+      WRT_CONFIG: ${{ matrix.CONFIG }}
+      WRT_THEME: vantage
+      WRT_NAME: OWRT
+      WRT_SSID: OWRT
+      WRT_WORD: 12345678
+      WRT_IP: 192.168.10.1
+      WRT_PW: 无
+      WRT_REPO: https://github.com/${{ matrix.SOURCE }}.git
+      WRT_BRANCH: ${{ matrix.BRANCH }}
+      WRT_SOURCE: ${{ matrix.SOURCE }}
+      WRT_PACKAGE: ${{ inputs.PACKAGE }}
+      WRT_TEST: ${{ inputs.TEST || false }}

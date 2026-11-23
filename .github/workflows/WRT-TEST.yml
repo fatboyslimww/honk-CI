@@ -25,6 +25,9 @@ on:
           - IPQ807X-WIFI-YES
           - MEDIATEK-WIFI-NO
           - MEDIATEK-WIFI-YES
+          - RASPBERRYPI-3
+          - RASPBERRYPI-4
+          - RASPBERRYPI-5
           - ROCKCHIP
           - X86
           - TEST

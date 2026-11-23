@@ -15,6 +15,7 @@ eBPF 数据面（`ebpf/`）、少量构建期改动和 X86/RK 的专属 UI/插�
 | `QCA-PPE` | `IPQ60XX` / `IPQ807X`（WIFI-YES/NO） | `owrt` | 内核 flowtable / PPE | 原版包、原版 honk |
 | `QCA-NSS` | 同上四个配置 | `main` | `qca-nss-drv` / ECM | 原版包、原版 honk |
 | `MTK-ALL` | `MEDIATEK`（WIFI-YES/NO） | `owrt` | 原版 | 原版包、原版 honk |
+| `RASPBERRYPI` | `RASPBERRYPI-3` / `-4` / `-5` | `owrt` | 原版 | 原版包、原版 honk；手动运行时可单选型号 |
 | `ROCKCHIP` | `ROCKCHIP` | `owrt`（手动可选） | DPD TC/eBPF + einat + honk p1 core | 与 X86 同一套 eBPF 栈；手动运行时可改源码/分支/LAN IP |
 | `WRT-TEST` | 任选 | 任选 | 按配置 | 手动单型号/只出 `.config` |
 
@@ -34,7 +35,7 @@ IPQ53XX / IPQ95XX 的配置保留但不在矩阵里：上游 `kmod-ath12k` 的�
 
 | 方式 | 行为 |
 |---|---|
-| 定时 | `Auto-Clean` 每天 04:00（北京时间）清空旧 release/tag/artifacts/运行记录，完成后通过 `workflow_run` 同时触发五个构建 |
+| 定时 | `Auto-Clean` 每天 04:00（北京时间）清空旧 release/tag/artifacts/运行记录，完成后通过 `workflow_run` 同时触发六个构建 |
 | 手动 | Actions → 选工作流 → Run workflow；`WRT-TEST` 可只出配置（`TEST=true`） |
 | 检查类 CI | 全部在 `kwrum1/dpd-fw`：`ci`（编译 BPF/dpdctl）、`upstream`（补丁锚点）、`sdk`（出四个 apk）、`einat`、`honk-core` |
 

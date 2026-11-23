@@ -26,7 +26,7 @@ publishes the `einat-p2` release. This repository only downloads the binary
 
 | Branch | Meaning | Built by |
 |---|---|---|
-| `owrt` | mainline tree, **PPE** flow offload (kernel flowtable) | EBPF-WRT-ALL, ROCKCHIP, MTK-ALL, QCA-PPE |
+| `owrt` | mainline tree, **PPE** flow offload (kernel flowtable) | EBPF-WRT-ALL, ROCKCHIP, MTK-ALL, RASPBERRYPI, QCA-PPE |
 | `main` | Qualcomm **NSS firmware** variant (`qca-nss-drv`) | QCA-NSS |
 
 ## Workflows
@@ -37,6 +37,7 @@ publishes the `einat-p2` release. This repository only downloads the binary
 | `QCA-PPE` | IPQ60XX / IPQ807X (wifi yes/no) | `@owrt` | **PPE** variant |
 | `QCA-NSS` | IPQ60XX / IPQ807X (same four configs) | `@main` | **NSS firmware** variant |
 | `MTK-ALL` | MEDIATEK-WIFI-YES/NO | `@owrt` | MediaTek |
+| `RASPBERRYPI` | RASPBERRYPI-3 / -4 / -5 | `@owrt` | Raspberry Pi 3/4/5 (bcm27xx), stock package set |
 | `ROCKCHIP` | ROCKCHIP | `@owrt` (selectable when dispatched by hand) | the Rockchip eBPF image (same stack as X86) |
 | `WRT-TEST` | one config, by hand | `owrt` or `main` | reproduce a single build |
 
@@ -46,7 +47,7 @@ Automation, restored to the upstream shape:
 |---|---|---|
 | `Auto-Clean` | daily 22:00 UTC, or manual | delete yesterday's releases/tags/runs, then **trigger every build pipeline** |
 | `Cache-Clean` | Sundays 20:00 UTC, or manual | `gh cache delete --all` |
-| `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` | on `Auto-Clean` completion, or manual | the images |
+| `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` / `RASPBERRYPI` | on `Auto-Clean` completion, or manual | the images |
 | `WRT-TEST` | manual only | one config |
 
 A push alone never starts a build: a nightly build always pins the source commit
