@@ -11,7 +11,7 @@
 # WRT_CONFIG must stay exactly "ROCKCHIP": Packages.sh / Handles.sh /
 # Settings.sh / WRT-CORE.yml select the eBPF stack by that literal name.
 #
-# Triggers: Auto-Clean completion (weekly, defaults below), or manual
+# Triggers: Auto-Clean completion (twice a week, defaults below), or manual
 # dispatch where source / branch / LAN IP can be overridden. A workflow_run
 # event carries no inputs, so every input below has a fallback in `with:`.
 

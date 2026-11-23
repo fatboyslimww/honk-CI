@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 kwrum1
 #
-# Auto-Clean: the weekly housekeeping run, and the thing that starts the builds.
+# Auto-Clean: the twice-weekly housekeeping run, and the thing that starts the builds.
 #
 # Upstream's model, kept on purpose: one scheduled run removes the previous
 # images, tags, artifacts and run history, and every build pipeline is
-# triggered by its completion (`workflow_run`). That keeps exactly one week of
+# triggered by its completion (`workflow_run`). That keeps only the latest batch of
 # output and gives the whole matrix a single start time, instead of six
 # independent crons that can overlap on a shared runner quota.
 #
-# Start time: Friday 20:00 UTC = Saturday 04:00 Asia/Shanghai, once a week.
+# Start time: Monday and Thursday 20:00 UTC = Tuesday and Friday 04:00
+# Asia/Shanghai, twice a week.
 # This is the only schedule that starts builds; change it here to change how
 # often every workflow builds.
 #
@@ -22,8 +23,8 @@ name: Auto-Clean
 
 on:
   schedule:
-    # 每周六 04:00（北京时间）= 周五 20:00 UTC
-    - cron: 0 20 * * 5
+    # 每周二、周五 04:00（北京时间）= 周一、周四 20:00 UTC
+    - cron: 0 20 * * 1,4
   workflow_dispatch:
 
 permissions:
@@ -56,7 +57,7 @@ jobs:
 
       # The action above does not touch artifacts. They are the largest thing
       # an image build leaves behind (build reports, provenance, per-target
-      # uploads), so a weekly full wipe keeps the repository clean.
+      # uploads), so a full wipe on every scheduled run keeps the repository clean.
       - name: Delete all workflow artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
