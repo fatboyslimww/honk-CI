@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Nightly runs carry no inputs, so ALL is the fallback.
+        # Scheduled runs carry no inputs, so ALL is the fallback.
         CONFIG: ${{ fromJSON((inputs.MODEL || 'ALL') == 'ALL' && '["RASPBERRYPI-3","RASPBERRYPI-4","RASPBERRYPI-5"]' || format('["{0}"]', inputs.MODEL)) }}
         SOURCE: [VIKINGYFY/immortalwrt]
         BRANCH: [owrt]

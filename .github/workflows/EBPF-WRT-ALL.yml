@@ -8,7 +8,7 @@
 #                  Scripts/Packages.sh. Only X86 and ROCKCHIP get it; every
 #                  other target builds the stock package set.
 #
-# Trigger chain, same shape as upstream: Auto-Clean runs nightly and its
+# Trigger chain, same shape as upstream: Auto-Clean runs weekly and its
 # completion starts every build pipeline (workflow_run above), plus manual
 # dispatch. Every release records the firmware commit and the datapath hash in
 # provenance-<CONFIG>.txt.

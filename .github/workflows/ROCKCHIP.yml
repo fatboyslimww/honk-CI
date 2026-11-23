@@ -6,12 +6,12 @@
 # Same image the ROCKCHIP leg of EBPF-WRT-ALL used to produce -- same
 # Config/ROCKCHIP.txt + Config/GENERAL.txt, same ebpf/ datapath, same
 # honk-x86rk.patch + p1 core. EBPF-WRT-ALL now builds X86 only, so RK is
-# built exactly once per night, here.
+# built exactly once per scheduled run, here.
 #
 # WRT_CONFIG must stay exactly "ROCKCHIP": Packages.sh / Handles.sh /
 # Settings.sh / WRT-CORE.yml select the eBPF stack by that literal name.
 #
-# Triggers: Auto-Clean completion (nightly, defaults below), or manual
+# Triggers: Auto-Clean completion (weekly, defaults below), or manual
 # dispatch where source / branch / LAN IP can be overridden. A workflow_run
 # event carries no inputs, so every input below has a fallback in `with:`.
 

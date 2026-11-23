@@ -35,7 +35,7 @@ IPQ53XX / IPQ95XX 的配置保留但不在矩阵里：上游 `kmod-ath12k` 的�
 
 | 方式 | 行为 |
 |---|---|
-| 定时 | `Auto-Clean` 每天 04:00（北京时间）清空旧 release/tag/artifacts/运行记录，完成后通过 `workflow_run` 同时触发六个构建 |
+| 定时 | `Auto-Clean` 每周六 04:00（北京时间）清空旧 release/tag/artifacts/运行记录，完成后通过 `workflow_run` 同时触发六个构建 |
 | 手动 | Actions → 选工作流 → Run workflow；`WRT-TEST` 可只出配置（`TEST=true`） |
 | 检查类 CI | 全部在 `kwrum1/dpd-fw`：`ci`（编译 BPF/dpdctl）、`upstream`（补丁锚点）、`sdk`（出四个 apk）、`einat`、`honk-core` |
 

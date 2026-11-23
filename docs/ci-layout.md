@@ -45,12 +45,12 @@ Automation, restored to the upstream shape:
 
 | Workflow | When | What |
 |---|---|---|
-| `Auto-Clean` | daily 22:00 UTC, or manual | delete yesterday's releases/tags/runs, then **trigger every build pipeline** |
+| `Auto-Clean` | weekly, Friday 20:00 UTC (Saturday 04:00 Beijing), or manual | delete last week's releases/tags/runs, then **trigger every build pipeline** |
 | `Cache-Clean` | Sundays 20:00 UTC, or manual | `gh cache delete --all` |
 | `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` / `RASPBERRYPI` | on `Auto-Clean` completion, or manual | the images |
 | `WRT-TEST` | manual only | one config |
 
-A push alone never starts a build: a nightly build always pins the source commit
+A push alone never starts a build: a scheduled build always pins the source commit
 it cloned, and the release records it.
 
 ## What each build records

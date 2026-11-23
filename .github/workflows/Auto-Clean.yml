@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 kwrum1
 #
-# Auto-Clean: the daily housekeeping run, and the thing that starts the builds.
+# Auto-Clean: the weekly housekeeping run, and the thing that starts the builds.
 #
-# Upstream's model, kept on purpose: one nightly run removes the previous
+# Upstream's model, kept on purpose: one scheduled run removes the previous
 # images, tags, artifacts and run history, and every build pipeline is
-# triggered by its completion (`workflow_run`). That keeps exactly one day of
+# triggered by its completion (`workflow_run`). That keeps exactly one week of
 # output and gives the whole matrix a single start time, instead of six
 # independent crons that can overlap on a shared runner quota.
 #
-# Start time: 20:00 UTC = 04:00 Asia/Shanghai. Images are ready by ~06:00.
+# Start time: Friday 20:00 UTC = Saturday 04:00 Asia/Shanghai, once a week.
+# This is the only schedule that starts builds; change it here to change how
+# often every workflow builds.
 #
 # Exception: the `core-p1` release is kept. It is the patched honk core the
 # X86/ROCKCHIP builds download; the primary copy now lives in kwrum1/dpd-fw and
@@ -20,7 +22,8 @@ name: Auto-Clean
 
 on:
   schedule:
-    - cron: 0 20 * * *
+    # 每周六 04:00（北京时间）= 周五 20:00 UTC
+    - cron: 0 20 * * 5
   workflow_dispatch:
 
 permissions:
@@ -53,7 +56,7 @@ jobs:
 
       # The action above does not touch artifacts. They are the largest thing
       # an image build leaves behind (build reports, provenance, per-target
-      # uploads), so a nightly full wipe keeps the repository clean.
+      # uploads), so a weekly full wipe keeps the repository clean.
       - name: Delete all workflow artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
