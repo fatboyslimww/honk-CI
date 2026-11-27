@@ -156,20 +156,20 @@ echo "== 7. IPQ/MTK 纯 PPE/flowtable，不安装 DPD =="
 # would either compete for the flow or be bypassed by it.
 leak=0
 
-# a) no IPQ/MTK/AIROHA config may select the DPD stack
+# a) no IPQ/MTK/AIROHA/PZ-L8 config may select the DPD stack
 for cfg in "$ROOT"/Config/IPQ*.txt "$ROOT"/Config/MEDIATEK*.txt \
-	   "$ROOT"/Config/AIROHA*.txt; do
+	   "$ROOT"/Config/AIROHA*.txt "$ROOT"/Config/PZ-L8.txt; do
 	[ -f "$cfg" ] || continue
 	while IFS= read -r pkg; do
 		case "$pkg" in
 		dpd-fastpath | einat-ebpf | router-acl | router-dataplane | dpdfwd)
-			bad "${cfg#$ROOT/} 选中了 $pkg：IPQ/MTK 只跑 PPE/flowtable"
+			bad "${cfg#$ROOT/} 选中了 $pkg：IPQ/MTK/PZ-L8 只跑 PPE/NSS/flowtable"
 			leak=1
 			;;
 		esac
 	done < <(sed -n 's/^CONFIG_PACKAGE_\([^=]*\)=[ym]$/\1/p' "$cfg")
 done
-[ "$leak" = 0 ] && ok "IPQ/MTK 的 Config 没有选中 DPD 数据面"
+[ "$leak" = 0 ] && ok "IPQ/MTK/PZ-L8 的 Config 没有选中 DPD 数据面"
 
 # b) Packages.sh copies ebpf/ only inside the X86|ROCKCHIP branch
 if awk '/^case "\$WRT_CONFIG" in/{on=1}

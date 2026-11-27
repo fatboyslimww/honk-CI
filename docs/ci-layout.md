@@ -1,6 +1,6 @@
 # CI layout (this repository)
 
-Last updated: 2026-11-26
+Last updated: 2026-11-27
 
 ## Where the code comes from
 
@@ -9,6 +9,7 @@ Last updated: 2026-11-26
 | Firmware | `VIKINGYFY/immortalwrt` | the upstream tree, unchanged. Branch decides the flavour (see below). |
 | eBPF datapath | **this repository, `ebpf/`** | copied into `wrt/package/ebpf/` by `Scripts/Packages.sh`, for X86/ROCKCHIP only. |
 | Board additions | **this repository, `device/nsy-g68-plus/`** | kernel/U-Boot DTS, defconfig and the 913 dwmac-rk patch, plus anchored `02_network` interface/MAC cases, copied into the cloned tree by `Scripts/apply-nsy-g68.sh` (ROCKCHIP only). |
+| PZ-L8 NSS board tree | `mufeng05/openwrt-cmcc-pz-l8-nss` (pinned) | `Scripts/apply-pz-l8.sh` applies that project's `setup.sh` to `openwrt/openwrt@v25.12.5`, then installs this repository's minimal honk/zram config. |
 | Third-party packages | cloned by `Scripts/Packages.sh` | aurora theme, honk (upstream `kenzok8/openwrt-honk@main`; x86/RK additionally receive `patches/honk/honk-x86rk.patch`), v2ray-geodata, partexp. Only what actually lands in the image. |
 
 There is no second copy of the datapath anywhere: the firmware repo is
@@ -29,6 +30,7 @@ publishes the `einat-p2` release. This repository only downloads the binary
 |---|---|---|
 | `owrt` | mainline tree, **PPE** flow offload (kernel flowtable) | EBPF-WRT-ALL, ROCKCHIP, MTK-ALL, RASPBERRYPI, QCA-PPE |
 | `main` | Qualcomm **NSS firmware** variant (`qca-nss-drv`) | QCA-NSS |
+| `v25.12.5` (`openwrt/openwrt`) | official OpenWrt stable tag used by the PZ-L8 NSS project | PZ-L8 |
 
 ## Workflows
 
@@ -37,6 +39,7 @@ publishes the `einat-p2` release. This repository only downloads the binary
 | `EBPF-WRT-ALL` | X86 | `@owrt` | the x86 eBPF image (datapath from `ebpf/`) |
 | `QCA-PPE` | IPQ60XX / IPQ807X (wifi yes/no) | `@owrt` | **PPE** variant |
 | `QCA-NSS` | IPQ60XX / IPQ807X (same four configs) | `@main` | **NSS firmware** variant |
+| `PZ-L8` | PZ-L8 | official OpenWrt `v25.12.5` + pinned NSS board support | NSS image with only honk/dae, luci-light and zram |
 | `MTK-ALL` | MEDIATEK-WIFI-YES/NO | `@owrt` | MediaTek |
 | `RASPBERRYPI` | RASPBERRYPI-3 / -4 / -5 | `@owrt` | Raspberry Pi 3/4/5 (bcm27xx), stock package set |
 | `ROCKCHIP` | ROCKCHIP | `@owrt` (selectable when dispatched by hand) | the Rockchip eBPF image (same stack as X86), including the out-of-tree NSY G68-PLUS board support |
@@ -48,7 +51,7 @@ Automation, restored to the upstream shape:
 |---|---|---|
 | `Auto-Clean` | twice a week, Monday and Thursday 20:00 UTC (Tuesday and Friday 04:00 Beijing), or manual | delete the previous batch of releases/tags/runs, then **trigger every build pipeline** |
 | `Cache-Clean` | Sundays 20:00 UTC, or manual | `gh cache delete --all` |
-| `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` / `RASPBERRYPI` | on `Auto-Clean` completion, or manual | the images |
+| `EBPF-WRT-ALL` / `ROCKCHIP` / `QCA-PPE` / `QCA-NSS` / `MTK-ALL` / `RASPBERRYPI` / `PZ-L8` | on `Auto-Clean` completion, or manual | the images |
 | `WRT-TEST` | manual only | one config |
 
 A push alone never starts a build: a scheduled build always pins the source commit

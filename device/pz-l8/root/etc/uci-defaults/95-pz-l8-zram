@@ -1,0 +1,14 @@
+#!/bin/sh
+# 256 MB board: keep a small compressed swap device as an OOM safety net.
+# The stock zram-swap init script is not enabled by the package itself, so
+# enable it here after writing the board-specific size.
+[ -x /etc/init.d/zram ] || exit 0
+
+uci -q get system.@system[0] >/dev/null 2>&1 || uci add system system >/dev/null
+uci set system.@system[0].zram_size_mb='64'
+uci set system.@system[0].zram_comp_algo='lzo'
+uci set system.@system[0].zram_priority='100'
+uci commit system
+
+/etc/init.d/zram enable
+exit 0
