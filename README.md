@@ -19,6 +19,12 @@ eBPF 数据面（`ebpf/`）、少量构建期改动和 X86/RK 的专属 UI/插�
 | `ROCKCHIP` | `ROCKCHIP` | `owrt`（手动可选） | DPD TC/eBPF + einat + honk p1 core | 与 X86 同一套 eBPF 栈；手动运行时可改源码/分支/LAN IP |
 | `WRT-TEST` | 任选 | 任选 | 按配置 | 手动单型号/只出 `.config` |
 
+ROCKCHIP 构建在上游 armv8 设备之外额外加入了 **NSY G68-PLUS**
+（RK3568 + RTL8367S DSA 交换机）。板级 DTS、U-Boot defconfig、内核补丁，
+以及上游 `02_network` 中的网口/MAC 映射，都放在 `device/nsy-g68-plus/`，
+由 `Scripts/apply-nsy-g68.sh` 在构建期以锚点方式接入上游树；只对
+`WRT_CONFIG=ROCKCHIP` 生效，锚点缺失会直接失败。
+
 IPQ53XX / IPQ95XX 的配置保留但不在矩阵里：上游 `kmod-ath12k` 的依赖在
 `owrt`/`main` 上都未满足，镜像组装会失败。
 
@@ -43,6 +49,7 @@ IPQ53XX / IPQ95XX 的配置保留但不在矩阵里：上游 `kmod-ath12k` 的�
 
 ```
 Config/              各型号的 defconfig 片段
+device/              非上游设备的板级文件（目前为 NSY G68-PLUS）
 ebpf/                数据面包（X86/ROCKCHIP 专用）：router-dataplane、einat-ebpf、LuCI
 patches/honk/        X86/RK 的 honk 包源码补丁（core 由 dpd-fw 构建）
 Scripts/             Packages.sh / Handles.sh / Settings.sh

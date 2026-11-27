@@ -94,6 +94,42 @@ for sym in DRIVER_11AC_SUPPORT DRIVER_11AX_SUPPORT DRIVER_11BE_SUPPORT; do
 	fi
 done
 
+echo "== anchors used by Scripts/apply-nsy-g68.sh =="
+
+# Version guards in the board script.
+have target/linux/rockchip/Makefile '^KERNEL_PATCHVER:=6\.18$' \
+	&& ok "rockchip Makefile: KERNEL_PATCHVER 6.18" \
+	|| bad "rockchip Makefile: KERNEL_PATCHVER 6.18"
+have package/boot/uboot-rockchip/Makefile '^PKG_VERSION:=2026\.10$' \
+	&& ok "uboot-rockchip Makefile: PKG_VERSION 2026.10" \
+	|| bad "uboot-rockchip Makefile: PKG_VERSION 2026.10"
+
+# Makefile insertion anchors.
+have package/boot/uboot-rockchip/Makefile '^define U-Boot/nanopi-r5c-rk3568$' \
+	&& ok "uboot-rockchip Makefile: nanopi-r5c-rk3568 block" \
+	|| bad "uboot-rockchip Makefile: nanopi-r5c-rk3568 block"
+have package/boot/uboot-rockchip/Makefile '^  mrkaio-m68s-rk3568 \\$' \
+	&& ok "uboot-rockchip Makefile: mrkaio-m68s-rk3568 target" \
+	|| bad "uboot-rockchip Makefile: mrkaio-m68s-rk3568 target"
+have target/linux/rockchip/image/armv8.mk '^define Device/rk3568$' \
+	&& ok "rockchip armv8.mk: Device/rk3568 template" \
+	|| bad "rockchip armv8.mk: Device/rk3568 template"
+
+# 02_network function and first-case anchors.
+NETWORK_BD=target/linux/rockchip/armv8/base-files/etc/board.d/02_network
+have "$NETWORK_BD" '^rockchip_setup_interfaces\(\)$' \
+	&& ok "rockchip 02_network: setup_interfaces" \
+	|| bad "rockchip 02_network: setup_interfaces"
+have "$NETWORK_BD" '^rockchip_setup_macs\(\)$' \
+	&& ok "rockchip 02_network: setup_macs" \
+	|| bad "rockchip 02_network: setup_macs"
+have "$NETWORK_BD" '^[[:space:]]+9tripod,x3568-v4\|\\$' \
+	&& ok "rockchip 02_network: interface case anchor" \
+	|| bad "rockchip 02_network: interface case anchor"
+have "$NETWORK_BD" '^[[:space:]]+rumu3f,fine-3399\|\\$' \
+	&& ok "rockchip 02_network: MAC case anchor" \
+	|| bad "rockchip 02_network: MAC case anchor"
+
 echo
 if [ "$fails" = 0 ]; then
 	echo "RESULT: upstream still matches every build-time anchor"

@@ -1,6 +1,6 @@
 # CI layout (this repository)
 
-Last updated: 2026-10-28
+Last updated: 2026-11-26
 
 ## Where the code comes from
 
@@ -8,6 +8,7 @@ Last updated: 2026-10-28
 |---|---|---|
 | Firmware | `VIKINGYFY/immortalwrt` | the upstream tree, unchanged. Branch decides the flavour (see below). |
 | eBPF datapath | **this repository, `ebpf/`** | copied into `wrt/package/ebpf/` by `Scripts/Packages.sh`, for X86/ROCKCHIP only. |
+| Board additions | **this repository, `device/nsy-g68-plus/`** | kernel/U-Boot DTS, defconfig and the 913 dwmac-rk patch, plus anchored `02_network` interface/MAC cases, copied into the cloned tree by `Scripts/apply-nsy-g68.sh` (ROCKCHIP only). |
 | Third-party packages | cloned by `Scripts/Packages.sh` | aurora theme, honk (upstream `kenzok8/openwrt-honk@main`; x86/RK additionally receive `patches/honk/honk-x86rk.patch`), v2ray-geodata, partexp. Only what actually lands in the image. |
 
 There is no second copy of the datapath anywhere: the firmware repo is
@@ -38,7 +39,7 @@ publishes the `einat-p2` release. This repository only downloads the binary
 | `QCA-NSS` | IPQ60XX / IPQ807X (same four configs) | `@main` | **NSS firmware** variant |
 | `MTK-ALL` | MEDIATEK-WIFI-YES/NO | `@owrt` | MediaTek |
 | `RASPBERRYPI` | RASPBERRYPI-3 / -4 / -5 | `@owrt` | Raspberry Pi 3/4/5 (bcm27xx), stock package set |
-| `ROCKCHIP` | ROCKCHIP | `@owrt` (selectable when dispatched by hand) | the Rockchip eBPF image (same stack as X86) |
+| `ROCKCHIP` | ROCKCHIP | `@owrt` (selectable when dispatched by hand) | the Rockchip eBPF image (same stack as X86), including the out-of-tree NSY G68-PLUS board support |
 | `WRT-TEST` | one config, by hand | `owrt` or `main` | reproduce a single build |
 
 Automation, restored to the upstream shape:
@@ -73,5 +74,11 @@ rebuilding it.
   asserts this at build time and prints `offload: <CONFIG> keeps ...`.
 * Do not point a workflow back at a fork of immortalwrt: the firmware source is
   upstream, the datapath is `ebpf/`.
+* Out-of-tree boards stay in `device/<board>/` and are wired in by an anchored,
+  fail-hard script (`Scripts/apply-nsy-g68.sh`). Do not copy them into the
+  upstream tree as a permanent fork, and do not weaken the version guards when
+  upstream bumps Rockchip 6.18 / U-Boot 2026.10 without re-checking the DTS.
+  Network ports and MAC assignment must stay a case added to upstream
+  `02_network`; do not install a second board.d script that inherits `eth0`.
 * Third-party clones live in `Scripts/Packages.sh` and must be listed in
   `Scripts/verify-packages.sh` so a package that silently drops out is noticed.
